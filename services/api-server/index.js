@@ -33,32 +33,35 @@ app.use((req, res, next) => {
 // ========================================
 // CORS Configuration
 // ========================================
+const envOrigins = (process.env.ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
 const allowedOrigins = [
     'http://localhost:5173',
     'http://192.168.100.92:5173',
-    'http://172.24.16.1:5173'
+    'http://172.24.16.1:5173',
+    ...envOrigins,
 ];
 
+// Also allow any *.vercel.app preview URL (so future Vercel previews don't break)
+const vercelPreviewRegex = /^https:\/\/[a-z0-9-]+\.vercel\.app$/i;
+
 app.use(cors({
-    origin: function(origin, callback) {
-        console.log(`🔍 [CORS] Checking origin: ${origin}`);
-        // Allow requests with no origin (like mobile apps or Postman)
-        if (!origin) {
-            console.log(`✅ [CORS] No origin - allowing`);
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin) || vercelPreviewRegex.test(origin)) {
             return callback(null, true);
         }
-        if (allowedOrigins.includes(origin)) {
-            console.log(`✅ [CORS] Origin allowed: ${origin}`);
-            callback(null, true);
-        } else {
-            console.log(`❌ [CORS] Origin blocked: ${origin}`);
-            callback(new Error(`CORS policy: Origin ${origin} is not allowed`));
-        }
+        callback(new Error(`CORS policy: Origin ${origin} is not allowed`));
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Upload-Token', 'X-User-Id']
 }));
+
+console.log('🌐 CORS enabled for:');
+allowedOrigins.forEach(o => console.log(`   - ${o}`));
+console.log(`   - (any *.vercel.app subdomain via regex)`);
 
 // ========================================
 // Middleware
