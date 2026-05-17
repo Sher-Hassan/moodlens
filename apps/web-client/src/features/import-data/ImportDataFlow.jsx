@@ -96,7 +96,7 @@ function ViaApp({ onSuccess, onBack }) {
             setPolls((p) => p + 1);
             try {
                 const token = localStorage.getItem('moodlens.token');
-                const res = await axios.get(`${API_BASE}/api/health/status`, {
+                const res = await axios.get(`${API_BASE_URL}/api/health/status`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 if (res.data.hasData) {
@@ -229,7 +229,7 @@ function ViaFile({ onSuccess, onBack }) {
             fd.append('file', file);
             fd.append('userId', user._id);
 
-            await axios.post(`${API_BASE}/api/health/upload`, fd, {
+            await axios.post(`${API_BASE_URL}/api/health/upload`, fd, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'multipart/form-data',
