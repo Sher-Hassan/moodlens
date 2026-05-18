@@ -2,6 +2,7 @@ import axios from 'axios';
 import path from 'path';
 import AdmZip from 'adm-zip';
 import HealthRecord from '../models/HealthRecord.js';
+import FormData from 'form-data';
 
 
 
@@ -41,18 +42,18 @@ export const handleUpload = async (req, res) => {
         // Build a native multi-part form payload to stream the file across the web network
         const mlEngineUrl = process.env.ML_ENGINE_URL || 'http://localhost:8000';
         const streamForm = new FormData();
-        const xmlBlob = new Blob([xmlBuffer], { type: 'text/xml' });
-        
-        // Append the binary blob directly
-        streamForm.append('file', xmlBlob, 'export.xml');
+        streamForm.append('file', xmlBuffer, {
+            filename: 'export.xml',
+            contentType: 'text/xml',
+        });
 
-        console.log(`📤 Streaming XML payload directly to ML engine at: ${mlEngineUrl}/process-xml`);
+        console.log(`📤 Streaming XML payload (${xmlBuffer.length} bytes) to ML engine at: ${mlEngineUrl}/process-xml`);
 
-        // ⚡ FIX: We removed the manual 'Content-Type' line. 
-        // Axios will now auto-generate the header with the correct boundary parameter natively.
         const pythonResponse = await axios.post(`${mlEngineUrl}/process-xml`, streamForm, {
+            headers: streamForm.getHeaders(),  // includes the proper boundary token
             maxContentLength: Infinity,
-            maxBodyLength: Infinity
+            maxBodyLength: Infinity,
+            timeout: 120000,                    // 2 min — generous for cold starts
         });
 
         let cleanedData = pythonResponse.data;

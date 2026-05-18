@@ -13,6 +13,11 @@ def test():
 @app.route('/process-xml', methods=['POST'])
 def process_xml():
     # Capture the stream directly from the incoming multipart network request
+    print(f"📥 Received upload request, content-length: {request.content_length}", flush=True)
+    
+    if 'file' not in request.files:
+        print("❌ No 'file' key in request.files", flush=True)
+        return jsonify({"error": "No file payload chunk found in request"}), 400
     if 'file' not in request.files:
         return jsonify({"error": "No file payload chunk found in request"}), 400
         
