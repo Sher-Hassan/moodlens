@@ -53,7 +53,7 @@ export const handleUpload = async (req, res) => {
             headers: streamForm.getHeaders(),  // includes the proper boundary token
             maxContentLength: Infinity,
             maxBodyLength: Infinity,
-            timeout: 120000,                    // 2 min — generous for cold starts
+            timeout: 300000,                    // 5 min — generous for cold starts
         });
 
         let cleanedData = pythonResponse.data;
