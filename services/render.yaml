@@ -33,6 +33,24 @@ services:
       - key: ALLOWED_ORIGINS
         sync: false      # comma-separated Vercel URLs
 
+  # ── Python ML Engine (XML processor) ───────────
+  - type: web
+    name: moodlens-ml-engine
+    runtime: python
+    plan: free
+    rootDir: services/ml-engine
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app/main.py
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PORT
+        value: 8000
+
+  # ── Node.js API needs to know the ML engine URL ─
+  # Add ML_ENGINE_URL=https://moodlens-ml-engine.onrender.com to moodlens-api env vars in the Render dashboard.
+
   # ── Python Inference Service ────────────────────
   - type: web
     name: moodlens-inference

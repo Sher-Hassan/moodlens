@@ -203,8 +203,10 @@ function ViaFile({ onSuccess, onBack }) {
     const [file, setFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [phase, setPhase] = useState('');
     const [error, setError] = useState('');
     const inputRef = useRef(null);
+    const stopped = useRef(false);
 
     const onDrop = (e) => {
         e.preventDefault();
@@ -217,11 +219,8 @@ function ViaFile({ onSuccess, onBack }) {
         setError('');
         setUploading(true);
         setProgress(0);
-
-        // Soft "preparing" tick while real upload + server processing happen
-        const tick = setInterval(() => {
-            setProgress((p) => (p < 88 ? p + Math.random() * 3 : p));
-        }, 280);
+        setPhase('Uploading');
+        stopped.current = false;
 
         try {
             const token = localStorage.getItem('moodlens.token');
@@ -229,6 +228,7 @@ function ViaFile({ onSuccess, onBack }) {
             fd.append('file', file);
             fd.append('userId', user._id);
 
+            // Phase 1: upload to API (0 → 60%)
             await axios.post(`${API_BASE_URL}/api/health/upload`, fd, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -236,18 +236,58 @@ function ViaFile({ onSuccess, onBack }) {
                 },
                 onUploadProgress: (e) => {
                     if (e.total) {
-                        const pct = (e.loaded / e.total) * 70; // upload phase: 0-70%
+                        const pct = (e.loaded / e.total) * 60;
                         setProgress((p) => Math.max(p, pct));
                     }
                 },
             });
 
-            clearInterval(tick);
+            // API returned 202 — file is being processed in the background.
+            // Phase 2: poll /status until records appear (60 → 95%)
+            setPhase('Processing on the server');
+            setProgress(60);
+
+            await new Promise((resolve, reject) => {
+                let polls = 0;
+                // Nudge the bar slowly while waiting
+                const nudge = setInterval(() => {
+                    setProgress((p) => (p < 95 ? p + 0.4 : p));
+                }, 500);
+
+                const interval = setInterval(async () => {
+                    if (stopped.current) {
+                        clearInterval(interval);
+                        clearInterval(nudge);
+                        return;
+                    }
+                    polls++;
+                    try {
+                        const res = await axios.get(`${API_BASE_URL}/api/health/status`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        });
+                        if (res.data.hasData) {
+                            clearInterval(interval);
+                            clearInterval(nudge);
+                            resolve();
+                        }
+                    } catch {
+                        /* silent retry */
+                    }
+                    // Give up after ~10 minutes (120 × 5 s) and let user retry
+                    if (polls > 120) {
+                        clearInterval(interval);
+                        clearInterval(nudge);
+                        reject(new Error('Processing is taking longer than expected. Your data will appear once the server finishes — try refreshing in a minute.'));
+                    }
+                }, 5000);
+            });
+
             setProgress(100);
+            setPhase('Done');
             await refresh();
             setTimeout(onSuccess, 450);
         } catch (err) {
-            clearInterval(tick);
+            stopped.current = true;
             setError(
                 err.response?.data?.error ||
                     err.response?.data?.details ||
@@ -257,9 +297,6 @@ function ViaFile({ onSuccess, onBack }) {
             setUploading(false);
         }
     };
-
-    const phase =
-        progress < 70 ? 'Uploading' : progress < 100 ? 'Processing on the server' : 'Done';
 
     return (
         <>
