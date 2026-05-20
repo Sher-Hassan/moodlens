@@ -96,6 +96,15 @@ function ChooseMethod({ onPick }) {
     );
 }
 
+// Maps processing phase → { label, progress (0-100) }
+const PHASE_META = {
+    idle:       { label: 'Listening for your data',          progress: 0   },
+    received:   { label: 'Data received — sending to ML engine…', progress: 20  },
+    processing: { label: 'Analysing your health records…',   progress: 55  },
+    done:       { label: 'Saving records…',                  progress: 90  },
+    error:      { label: 'Processing error — retrying…',     progress: 0   },
+};
+
 /* ── Step 2a: Via app ─────────────────────────────── */
 function ViaApp({ isMobile, onSuccess, onBack }) {
     const { user } = useUser();
@@ -103,13 +112,17 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
     const [polls, setPolls] = useState(0);
     const stopped = useRef(false);
 
-    // Token state (mobile only)
+    // Processing state for the progress bar
+    const [phase, setPhase] = useState('idle');
+    const [progress, setProgress] = useState(0);
+
+    // Token state
     const [credentials, setCredentials] = useState(null);
     const [credLoading, setCredLoading] = useState(false);
     const [copiedId, setCopiedId] = useState(false);
     const [copiedToken, setCopiedToken] = useState(false);
 
-    // Fetch userId + uploadToken on mount (mobile) or when entering this step (desktop shows it too for copy)
+    // Fetch userId + uploadToken on mount
     const fetchCredentials = useCallback(async () => {
         if (!user) return;
         setCredLoading(true);
@@ -120,7 +133,6 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
             });
             setCredentials({ userId: res.data.userId, uploadToken: res.data.token });
         } catch {
-            // fallback: use user._id from context, token unavailable
             setCredentials({ userId: user._id, uploadToken: null });
         } finally {
             setCredLoading(false);
@@ -131,21 +143,39 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
         fetchCredentials();
     }, [fetchCredentials]);
 
-    // Polling for data arrival
+    // Polling — checks both processing phase and data arrival
     useEffect(() => {
         const interval = setInterval(async () => {
             if (stopped.current) return;
             setPolls((p) => p + 1);
             try {
                 const token = localStorage.getItem('moodlens.token');
-                const res = await axios.get(`${API_BASE_URL}/api/health/status`, {
+
+                // Check processing phase first
+                const procRes = await axios.get(`${API_BASE_URL}/api/health/processing`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                if (res.data.hasData) {
-                    stopped.current = true;
-                    clearInterval(interval);
-                    await refresh();
-                    onSuccess();
+                const currentPhase = procRes.data.phase ?? 'idle';
+                setPhase(currentPhase);
+                const meta = PHASE_META[currentPhase] ?? PHASE_META.idle;
+                // Nudge progress forward slightly each poll while active so bar feels alive
+                setProgress((p) => {
+                    if (currentPhase === 'idle' || currentPhase === 'error') return p;
+                    return Math.max(p, Math.min(meta.progress + (p > meta.progress ? 1 : 0), meta.progress + 8));
+                });
+
+                // Check for completion
+                if (currentPhase === 'done') {
+                    const statusRes = await axios.get(`${API_BASE_URL}/api/health/status`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (statusRes.data.hasData) {
+                        stopped.current = true;
+                        clearInterval(interval);
+                        setProgress(100);
+                        await refresh();
+                        setTimeout(onSuccess, 500);
+                    }
                 }
             } catch {
                 /* silent retry */
@@ -165,8 +195,10 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
         });
     };
 
-    const patientLabel =
-        polls < POLL_PATIENCE
+    const isActive = phase !== 'idle' && phase !== 'error';
+    const patientLabel = isActive
+        ? (PHASE_META[phase]?.label ?? 'Processing…')
+        : polls < POLL_PATIENCE
             ? 'Listening for your data'
             : 'Still listening — leave this open';
 
@@ -198,7 +230,20 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
                         </a>
                     </div>
 
-                    <p className="via-app__listening-label">{patientLabel}</p>
+                    <p className={`via-app__listening-label${isActive ? ' via-app__listening-label--active' : ''}`}>
+                        {patientLabel}
+                    </p>
+
+                    {isActive && (
+                        <div className="via-app__progress">
+                            <div className="via-app__progress-bar">
+                                <div
+                                    className="via-app__progress-fill"
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     {/* Credentials */}
                     <div className="via-app__creds">
@@ -266,7 +311,21 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
                     />
                 </div>
 
-                <p className="via-app__listening-label">{patientLabel}</p>
+                <p className={`via-app__listening-label${isActive ? ' via-app__listening-label--active' : ''}`}>
+                    {patientLabel}
+                </p>
+
+                {isActive && (
+                    <div className="via-app__progress">
+                        <div className="via-app__progress-bar">
+                            <div
+                                className="via-app__progress-fill"
+                                style={{ width: `${progress}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
+
                 <p className="via-app__notice">
                     This may take up to 5 minutes — the backend may need a moment to wake up on its free tier.
                 </p>

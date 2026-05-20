@@ -4,8 +4,25 @@ import AdmZip from 'adm-zip';
 import HealthRecord from '../models/HealthRecord.js';
 import FormData from 'form-data';
 
+// In-memory map: userId → { phase: 'received'|'processing'|'done'|'error', startedAt }
+// Cleared 60s after completion so stale entries don't persist across restarts
+const processingState = new Map();
+
+export function getProcessingState(userId) {
+    return processingState.get(String(userId)) ?? null;
+}
+
+function setState(userId, phase) {
+    processingState.set(String(userId), { phase, startedAt: Date.now() });
+    if (phase === 'done' || phase === 'error') {
+        setTimeout(() => processingState.delete(String(userId)), 60000);
+    }
+}
+
 // Fire-and-forget: runs after 202 is sent so Render's 30s timeout never applies
 async function processXmlInBackground(xmlBuffer, userId) {
+    setState(userId, 'processing');
+
     const mlEngineUrl = process.env.ML_ENGINE_URL || 'http://localhost:8000';
     const streamForm = new FormData();
     streamForm.append('file', xmlBuffer, {
@@ -25,6 +42,7 @@ async function processXmlInBackground(xmlBuffer, userId) {
         });
     } catch (err) {
         console.error(`[BG] ML engine request failed: ${err.message}`);
+        setState(userId, 'error');
         return;
     }
 
@@ -34,6 +52,7 @@ async function processXmlInBackground(xmlBuffer, userId) {
     }
     if (!Array.isArray(cleanedData)) {
         console.error('[BG] ML engine returned unexpected format:', typeof cleanedData);
+        setState(userId, 'error');
         return;
     }
 
@@ -53,11 +72,15 @@ async function processXmlInBackground(xmlBuffer, userId) {
         } catch (err) {
             if (err.code !== 11000 && !err.writeErrors) {
                 console.error('[BG] DB insert error:', err.message);
+                setState(userId, 'error');
+                return;
             } else {
                 console.log(`[BG] Skipped duplicate metrics.`);
             }
         }
     }
+
+    setState(userId, 'done');
 }
 
 export const handleUpload = async (req, res) => {
@@ -91,6 +114,9 @@ export const handleUpload = async (req, res) => {
     } catch (error) {
         return res.status(400).json({ error: 'Failed to read uploaded file.', details: error.message });
     }
+
+    // Mark upload as received so the frontend polling can show a progress bar immediately
+    setState(userId, 'received');
 
     // Respond immediately so Render's 30-second gateway timeout is never hit.
     // The frontend will poll /api/health/status until records appear in the DB.

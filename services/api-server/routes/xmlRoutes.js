@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import { protectUpload } from '../middleware/auth.js';
 import { handleUpload } from '../controllers/uploadController.js';
-import { getDataStatus, getDailyData } from '../controllers/healthController.js';
+import { getDataStatus, getDailyData, getProcessingStatus } from '../controllers/healthController.js';
 
 const router = express.Router();
 
@@ -24,6 +24,7 @@ const upload = multer({
 });
 
 router.get('/status', protectUpload, getDataStatus);
+router.get('/processing', protectUpload, getProcessingStatus);
 router.get('/daily', protectUpload, getDailyData);
 router.post('/upload', protectUpload, upload.single('file'), handleUpload);
 

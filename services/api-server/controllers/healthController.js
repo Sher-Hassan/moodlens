@@ -1,10 +1,17 @@
 import mongoose from 'mongoose';
 import HealthRecord from '../models/HealthRecord.js';
+import { getProcessingState } from './uploadController.js';
 
 const TYPE_MAP = {
     HKQuantityTypeIdentifierStepCount: 'steps',
     HKCategoryTypeIdentifierSleepAnalysis: 'sleep_hours',
     HKQuantityTypeIdentifierActiveEnergyBurned: 'active_energy',
+};
+
+/** GET /api/health/processing — returns current upload processing phase */
+export const getProcessingStatus = (req, res) => {
+    const state = getProcessingState(req.user._id);
+    res.json({ phase: state?.phase ?? 'idle', startedAt: state?.startedAt ?? null });
 };
 
 /** GET /api/health/status — boolean for the DataGate */
