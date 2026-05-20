@@ -2,7 +2,10 @@ from flask import Flask, request, jsonify
 import os
 import numpy as np
 import tempfile
-from app.preprocessing.cleaner import parse_apple_health_xml
+try:
+    from app.preprocessing.cleaner import parse_apple_health_xml  # gunicorn: app.main:app
+except ModuleNotFoundError:
+    from preprocessing.cleaner import parse_apple_health_xml       # python app/main.py
 
 app = Flask(__name__)
 
