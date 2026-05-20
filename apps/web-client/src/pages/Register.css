@@ -22,3 +22,33 @@
   color: var(--text-muted);
   padding: 0 12px;
 }
+
+.register__pwd-strength {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: 6px;
+}
+
+.register__pwd-bars {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.register__pwd-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-border);
+  transition: background 250ms var(--ease-out-smooth);
+}
+
+.register__pwd-label {
+  font-family: var(--font-data);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: color 250ms var(--ease-out-smooth);
+  flex-shrink: 0;
+}

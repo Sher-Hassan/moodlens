@@ -23,6 +23,35 @@ function Register() {
   const [success, setSuccess] = useState("");
   const [showPwd, setShowPwd] = useState(false);
 
+  // Password strength: 0 weak · 1 medium · 2 strong
+  function pwdStrength(pwd) {
+    if (!pwd) return 0;
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+    if (score <= 1) return 0;   // weak
+    if (score === 2) return 1;  // medium
+    return 2;                   // strong
+  }
+
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+  function validate() {
+    if (!EMAIL_RE.test(form.email)) {
+      return "Enter a valid email address (e.g. you@domain.com).";
+    }
+    if (pwdStrength(form.password) < 1) {
+      return "Password is too weak — use 8+ characters with uppercase, lowercase, and a number.";
+    }
+    return null;
+  }
+
+  const strength = pwdStrength(form.password);
+  const strengthLabel = ["Weak", "Medium", "Strong"][strength];
+  const strengthColor = ["var(--red-core,#f87171)", "var(--amber-core,#fbbf24)", "var(--teal-glow)"][strength];
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -32,6 +61,8 @@ function Register() {
     e.preventDefault();
     setError("");
     setSuccess("");
+    const validationError = validate();
+    if (validationError) { setError(validationError); return; }
     setLoading(true);
     try {
       const payload = {
@@ -120,21 +151,35 @@ function Register() {
                 value={form.password}
                 onChange={handleChange}
                 required
-                placeholder="At least 8 characters"
+                placeholder="8+ chars, upper, lower, number"
                 autoComplete="new-password"
                 suffix={
                   <button
                     type="button"
                     className="auth__field-toggle"
                     onClick={() => setShowPwd((v) => !v)}
-                    aria-label={
-                      showPwd ? "Hide password" : "Show password"
-                    }
+                    aria-label={showPwd ? "Hide password" : "Show password"}
                   >
                     {showPwd ? "Hide" : "Show"}
                   </button>
                 }
               />
+              {form.password && (
+                <div className="register__pwd-strength">
+                  <div className="register__pwd-bars">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="register__pwd-bar"
+                        style={{ background: i <= strength ? strengthColor : undefined }}
+                      />
+                    ))}
+                  </div>
+                  <span className="register__pwd-label" style={{ color: strengthColor }}>
+                    {strengthLabel}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Section 2: Profile */}

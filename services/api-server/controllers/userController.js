@@ -1,9 +1,31 @@
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function pwdStrength(pwd) {
+    if (!pwd) return 0;
+    let score = 0;
+    if (pwd.length >= 8) score++;
+    if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+    if (score <= 1) return 0;
+    if (score === 2) return 1;
+    return 2;
+}
+
 export const createUser = async (req, res) => {
     try {
         const { name, email, password, age, gender } = req.body;
+
+        if (!EMAIL_RE.test(email)) {
+            return res.status(400).json({ error: 'Enter a valid email address (e.g. you@domain.com).' });
+        }
+
+        if (pwdStrength(password) < 1) {
+            return res.status(400).json({ error: 'Password too weak — use 8+ characters with uppercase, lowercase, and a number.' });
+        }
 
         const userExists = await User.findOne({ email });
         if (userExists) {
