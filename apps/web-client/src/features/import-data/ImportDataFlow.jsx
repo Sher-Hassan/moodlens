@@ -202,7 +202,7 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
             ? 'Listening for your data'
             : 'Still listening — leave this open';
 
-    const setupUrl = "https://www.icloud.com/shortcuts/32d33978ecd84a95a2b6382f99c21261";
+    const setupUrl = "https://www.icloud.com/shortcuts/adb97132170543ec8587ee3348a39717";
     const qrCodeApi = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(setupUrl)}&color=edf2f8&bgcolor=131e30`;
 
     if (isMobile) {
