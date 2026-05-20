@@ -1,12 +1,14 @@
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
-import jwt from 'jsonwebtoken'; // Add this import
 
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
 
-    if (!user || user.password !== password) {
+    const valid = user && await bcrypt.compare(password, user.password);
+    if (!valid) {
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 

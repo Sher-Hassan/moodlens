@@ -1,26 +1,28 @@
+import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 
 export const createUser = async (req, res) => {
     try {
         const { name, email, password, age, gender } = req.body;
 
-        // Check if user already exists
         const userExists = await User.findOne({ email });
         if (userExists) {
             return res.status(400).json({ error: 'User already exists' });
         }
 
+        const hashedPassword = await bcrypt.hash(password, 12);
+
         const user = await User.create({
             name,
             email,
-            password, // In a real app, hash this!
+            password: hashedPassword,
             profile: { age, gender }
         });
 
         res.status(201).json({
             message: 'User created successfully',
-            userId: user._id, // This is the ID you will use for uploads
-            user
+            userId: user._id,
+            user: { _id: user._id, name: user.name, email: user.email }
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
