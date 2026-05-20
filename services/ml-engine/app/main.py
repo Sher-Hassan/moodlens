@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 import os
 import numpy as np
 import tempfile
-from preprocessing.cleaner import parse_apple_health_xml
+from app.preprocessing.cleaner import parse_apple_health_xml
 
 app = Flask(__name__)
 

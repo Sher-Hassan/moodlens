@@ -29,7 +29,9 @@ services:
       - key: GEMINI_CHAT_MODEL
         value: gemini-2.5-flash
       - key: INFERENCE_URL
-        sync: false      # will be the URL of moodlens-inference after first deploy
+        sync: false      # set to moodlens-inference URL after first deploy
+      - key: ML_ENGINE_URL
+        value: https://moodlens-ml-engine.onrender.com
       - key: ALLOWED_ORIGINS
         sync: false      # comma-separated Vercel URLs
 
@@ -40,16 +42,11 @@ services:
     plan: free
     rootDir: services/ml-engine
     buildCommand: pip install -r requirements.txt
-    startCommand: python app/main.py
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --timeout 600 --workers 1 "app.main:app"
     healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
-      - key: PORT
-        value: 8000
-
-  # ── Node.js API needs to know the ML engine URL ─
-  # Add ML_ENGINE_URL=https://moodlens-ml-engine.onrender.com to moodlens-api env vars in the Render dashboard.
 
   # ── Python Inference Service ────────────────────
   - type: web
