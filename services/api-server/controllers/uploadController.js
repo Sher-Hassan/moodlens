@@ -19,29 +19,43 @@ function setState(userId, phase) {
     }
 }
 
+const ML_RETRIES = 3;
+const ML_RETRY_DELAY_MS = 15000; // 15s between retries — gives cold-start time to complete
+
 // Fire-and-forget: runs after 202 is sent so Render's 30s timeout never applies
 async function processXmlInBackground(xmlBuffer, userId) {
     setState(userId, 'processing');
 
     const mlEngineUrl = process.env.ML_ENGINE_URL || 'http://localhost:8000';
-    const streamForm = new FormData();
-    streamForm.append('file', xmlBuffer, {
-        filename: 'export.xml',
-        contentType: 'text/xml',
-    });
-
-    console.log(`📤 [BG] Streaming XML payload (${xmlBuffer.length} bytes) to ML engine at: ${mlEngineUrl}/process-xml`);
+    console.log(`📤 [BG] Sending XML payload (${xmlBuffer.length} bytes) to ML engine at: ${mlEngineUrl}/process-xml`);
 
     let pythonResponse;
-    try {
-        pythonResponse = await axios.post(`${mlEngineUrl}/process-xml`, streamForm, {
-            headers: streamForm.getHeaders(),
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
-            timeout: 600000, // 10 min — ML engine cold-start on free tier can be slow
-        });
-    } catch (err) {
-        console.error(`[BG] ML engine request failed: ${err.message}`);
+    let lastErr;
+    for (let attempt = 1; attempt <= ML_RETRIES; attempt++) {
+        // Fresh FormData per attempt — streams can only be consumed once
+        const form = new FormData();
+        form.append('file', xmlBuffer, { filename: 'export.xml', contentType: 'text/xml' });
+        try {
+            pythonResponse = await axios.post(`${mlEngineUrl}/process-xml`, form, {
+                headers: form.getHeaders(),
+                maxContentLength: Infinity,
+                maxBodyLength: Infinity,
+                timeout: 600000, // 10 min per attempt
+            });
+            lastErr = null;
+            break; // success
+        } catch (err) {
+            lastErr = err;
+            console.error(`[BG] ML engine attempt ${attempt}/${ML_RETRIES} failed: ${err.message}`);
+            if (attempt < ML_RETRIES) {
+                console.log(`[BG] Retrying in ${ML_RETRY_DELAY_MS / 1000}s…`);
+                await new Promise(r => setTimeout(r, ML_RETRY_DELAY_MS));
+            }
+        }
+    }
+
+    if (lastErr) {
+        console.error(`[BG] All ${ML_RETRIES} ML engine attempts failed.`);
         setState(userId, 'error');
         return;
     }

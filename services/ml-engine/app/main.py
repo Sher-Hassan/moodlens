@@ -8,6 +8,7 @@ except ModuleNotFoundError:
     from preprocessing.cleaner import parse_apple_health_xml       # python app/main.py
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 600 * 1024 * 1024  # 600 MB
 
 @app.route('/')
 def test():

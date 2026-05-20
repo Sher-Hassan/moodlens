@@ -98,11 +98,11 @@ function ChooseMethod({ onPick }) {
 
 // Maps processing phase → { label, progress (0-100) }
 const PHASE_META = {
-    idle:       { label: 'Listening for your data',          progress: 0   },
-    received:   { label: 'Data received — sending to ML engine…', progress: 20  },
-    processing: { label: 'Analysing your health records…',   progress: 55  },
-    done:       { label: 'Saving records…',                  progress: 90  },
-    error:      { label: 'Processing error — retrying…',     progress: 0   },
+    idle:       { label: 'Listening for your data',               progress: 0  },
+    received:   { label: 'Data received — waking up ML engine…',  progress: 15 },
+    processing: { label: 'Analysing your health records…',        progress: 55 },
+    done:       { label: 'Saving records…',                       progress: 90 },
+    error:      { label: 'Upload failed — check your connection', progress: 0  },
 };
 
 /* ── Step 2a: Via app ─────────────────────────────── */
@@ -115,6 +115,7 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
     // Processing state for the progress bar
     const [phase, setPhase] = useState('idle');
     const [progress, setProgress] = useState(0);
+    const [uploadError, setUploadError] = useState('');
 
     // Token state
     const [credentials, setCredentials] = useState(null);
@@ -164,14 +165,17 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
                     return Math.max(p, Math.min(meta.progress + (p > meta.progress ? 1 : 0), meta.progress + 8));
                 });
 
-                // Check for completion — advance whether or not new records were saved
-                // (duplicate upload or no matching metrics still counts as done)
+                // Terminal states
                 if (currentPhase === 'done') {
                     stopped.current = true;
                     clearInterval(interval);
                     setProgress(100);
                     await refresh();
                     setTimeout(onSuccess, 500);
+                } else if (currentPhase === 'error') {
+                    stopped.current = true;
+                    clearInterval(interval);
+                    setUploadError('Processing failed. The ML engine could not handle your file. Please try again — the backend may need a moment to wake up.');
                 }
             } catch {
                 /* silent retry */
@@ -278,6 +282,13 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
                         ) : null}
                     </div>
 
+                    {uploadError && (
+                        <div className="via-file__error" role="alert">
+                            <span className="via-file__error-dot" />
+                            {uploadError}
+                        </div>
+                    )}
+
                     <div className="via-app__foot">
                         <button className="link-btn" onClick={onBack}>
                             ← Back
@@ -344,6 +355,13 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
                         <span>Your data will upload automatically. This page will advance once it arrives.</span>
                     </li>
                 </ol>
+
+                {uploadError && (
+                    <div className="via-file__error" role="alert">
+                        <span className="via-file__error-dot" />
+                        {uploadError}
+                    </div>
+                )}
 
                 <div className="via-app__foot">
                     <button className="link-btn" onClick={onBack}>

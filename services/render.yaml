@@ -42,7 +42,7 @@ services:
     plan: free
     rootDir: services/ml-engine
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --timeout 600 --workers 1 "app.main:app"
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --timeout 600 --workers 1 --limit-request-line 0 --limit-request-field_size 0 "app.main:app"
     healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
