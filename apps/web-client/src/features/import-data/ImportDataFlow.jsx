@@ -164,18 +164,14 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
                     return Math.max(p, Math.min(meta.progress + (p > meta.progress ? 1 : 0), meta.progress + 8));
                 });
 
-                // Check for completion
+                // Check for completion — advance whether or not new records were saved
+                // (duplicate upload or no matching metrics still counts as done)
                 if (currentPhase === 'done') {
-                    const statusRes = await axios.get(`${API_BASE_URL}/api/health/status`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                    });
-                    if (statusRes.data.hasData) {
-                        stopped.current = true;
-                        clearInterval(interval);
-                        setProgress(100);
-                        await refresh();
-                        setTimeout(onSuccess, 500);
-                    }
+                    stopped.current = true;
+                    clearInterval(interval);
+                    setProgress(100);
+                    await refresh();
+                    setTimeout(onSuccess, 500);
                 }
             } catch {
                 /* silent retry */
@@ -424,13 +420,20 @@ function ViaFile({ onSuccess, onBack }) {
                     }
                     polls++;
                     try {
-                        const res = await axios.get(`${API_BASE_URL}/api/health/status`, {
+                        // Poll processing phase — resolves as soon as server marks done
+                        // (covers duplicate uploads and zero-match files too)
+                        const procRes = await axios.get(`${API_BASE_URL}/api/health/processing`, {
                             headers: { Authorization: `Bearer ${token}` },
                         });
-                        if (res.data.hasData) {
+                        if (procRes.data.phase === 'done' || procRes.data.phase === 'error') {
                             clearInterval(interval);
                             clearInterval(nudge);
-                            resolve();
+                            if (procRes.data.phase === 'error') {
+                                reject(new Error('Server encountered an error processing your file. Please try again.'));
+                            } else {
+                                resolve();
+                            }
+                            return;
                         }
                     } catch {
                         /* silent retry */

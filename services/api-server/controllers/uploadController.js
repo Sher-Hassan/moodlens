@@ -74,19 +74,27 @@ async function processXmlInBackground(xmlBuffer, userId) {
                 console.error('[BG] DB insert error:', err.message);
                 setState(userId, 'error');
                 return;
-            } else {
-                console.log(`[BG] Skipped duplicate metrics.`);
             }
+            console.log(`[BG] Skipped duplicate metrics.`);
         }
+    } else {
+        console.log(`[BG] ML engine returned 0 matching records for user ${userId}`);
     }
 
     setState(userId, 'done');
 }
 
 export const handleUpload = async (req, res) => {
-    const { userId } = req.body;
+    // Always use the authenticated user's id — don't trust body.userId
+    // (upload-token auth sets req.user; JWT auth sets req.user; both paths land here)
+    if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const userId = req.user._id.toString();
 
-    if (!req.user || req.user._id.toString() !== userId) {
+    // Optional: if caller explicitly sends userId, verify it matches (extra guard for JWT path)
+    const providedUserId = req.body.userId;
+    if (providedUserId && providedUserId !== userId) {
         return res.status(403).json({
             error: 'Security Breach: Authenticated user does not match target userId'
         });
@@ -103,7 +111,10 @@ export const handleUpload = async (req, res) => {
         if (fileExt === '.zip') {
             const zip = new AdmZip(req.file.buffer);
             const zipEntries = zip.getEntries();
-            const xmlEntry = zipEntries.find(entry => entry.entryName.endsWith('export.xml'));
+            // Case-insensitive match — Apple Health uses export.xml but some versions vary
+            const xmlEntry = zipEntries.find(entry =>
+                entry.entryName.toLowerCase().endsWith('export.xml')
+            );
             if (!xmlEntry) {
                 return res.status(400).json({ error: 'Invalid ZIP: Could not find export.xml inside the archive.' });
             }
