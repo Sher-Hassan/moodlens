@@ -74,9 +74,34 @@ export default function MentalAnalysisPage() {
     const [aiLoading, setAiLoading] = useState(true);
     const [aiError, setAiError] = useState(null);
 
+    const fetchAI = useCallback(async () => {
+        setAiLoading(true);
+        setAiError(null);
+        try {
+            const token = localStorage.getItem('moodlens.token');
+            const res = await axios.get(`${API_BASE_URL}/api/ai/mental-wellness`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (res.data?.error) {
+                setAiError(res.data);
+                setAiData(null);
+            } else {
+                setAiData(res.data);
+                setAiError(null);
+            }
+        } catch (err) {
+            console.error('❌ [AI] Fetch failed:', err);
+            setAiError({ message: 'Could not load AI analysis' });
+            setAiData(null);
+        } finally {
+            setAiLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
         let cancelled = false;
-        const fetch = async () => {
+        const load = async () => {
             try {
                 const token = localStorage.getItem('moodlens.token');
                 const res = await axios.get(`${API_BASE_URL}/api/assessments/latest`, {
@@ -93,36 +118,13 @@ export default function MentalAnalysisPage() {
                 if (!cancelled) setPhase('no-quiz');
             }
         };
-        fetch();
+        load();
         return () => { cancelled = true; };
     }, []);
 
     useEffect(() => {
-        const fetchAI = async () => {
-            try {
-                const token = localStorage.getItem('moodlens.token');
-                const res = await axios.get(`${API_BASE_URL}/api/ai/mental-wellness`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-
-                if (res.data?.error) {
-                    setAiError(res.data);
-                    setAiData(null);
-                } else {
-                    setAiData(res.data);
-                    setAiError(null);
-                }
-            } catch (err) {
-                console.error('❌ [AI] Fetch failed:', err);
-                setAiError({ message: 'Could not load AI analysis' });
-                setAiData(null);
-            } finally {
-                setAiLoading(false);
-            }
-        };
-
         fetchAI();
-    }, []);
+    }, [fetchAI]);
 
     const handleQuizComplete = useCallback(async (responses) => {
         setPhase('submitting');
@@ -136,11 +138,12 @@ export default function MentalAnalysisPage() {
             );
             setAssessment(res.data.assessment);
             setPhase('results');
+            fetchAI();
         } catch (err) {
             setError(err.response?.data?.error || err.message || 'Submission failed.');
             setPhase('quiz');
         }
-    }, []);
+    }, [fetchAI]);
 
     const startOver = () => {
         setAssessment(null);
