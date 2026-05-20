@@ -106,17 +106,16 @@ export default function DassQuiz({ onComplete, onCancel }) {
                 </button>
 
                 {/* Three-segment progress bar */}
-                <div className="dass-progress" role="progressbar" aria-valuenow={answeredCount} aria-valuemax={TOTAL}>
-                    {sectionProgress.map((s, i) => (
-                        <div key={s.id} className="dass-progress__seg">
-                            <div
-                                className="dass-progress__fill"
-                                style={{
-                                    '--fill-pct':   `${(s.answered / s.total) * 100}%`,
-                                    '--fill-color': s.color,
-                                }}
-                            />
-                        </div>
+                <div className="dass-progress">
+                    {sectionProgress.map((s) => (
+                        <progress
+                            key={s.id}
+                            className="dass-progress__seg"
+                            value={s.answered}
+                            max={s.total}
+                            aria-label={s.label}
+                            style={{ '--fill-color': s.color }}
+                        />
                     ))}
                 </div>
 

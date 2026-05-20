@@ -235,14 +235,12 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
                     </p>
 
                     {isActive && (
-                        <div className="via-app__progress">
-                            <div className="via-app__progress-bar">
-                                <div
-                                    className="via-app__progress-fill"
-                                    style={{ width: `${progress}%` }}
-                                />
-                            </div>
-                        </div>
+                        <progress
+                            className="via-app__progress-bar"
+                            value={progress}
+                            max={100}
+                            aria-label={patientLabel}
+                        />
                     )}
 
                     {/* Credentials */}
@@ -316,14 +314,12 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
                 </p>
 
                 {isActive && (
-                    <div className="via-app__progress">
-                        <div className="via-app__progress-bar">
-                            <div
-                                className="via-app__progress-fill"
-                                style={{ width: `${progress}%` }}
-                            />
-                        </div>
-                    </div>
+                    <progress
+                        className="via-app__progress-bar"
+                        value={progress}
+                        max={100}
+                        aria-label={patientLabel}
+                    />
                 )}
 
                 <p className="via-app__notice">
@@ -508,12 +504,12 @@ function ViaFile({ onSuccess, onBack }) {
 
             {uploading && (
                 <div className="via-file__progress">
-                    <div className="via-file__progress-bar">
-                        <div
-                            className="via-file__progress-fill"
-                            style={{ width: `${progress}%` }}
-                        />
-                    </div>
+                    <progress
+                        className="via-file__progress-bar"
+                        value={progress}
+                        max={100}
+                        aria-label={phase}
+                    />
                     <p className="via-file__progress-label">
                         {phase}
                         <span> · {Math.round(progress)}%</span>
