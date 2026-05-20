@@ -278,15 +278,15 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
                     </li>
                     <li>
                         <span className="via-app__step-num">2</span>
-                        <span>When prompted, the shortcut will ask for your <strong>User ID</strong> and <strong>Upload Token</strong>.</span>
+                        <span>When prompted, the shortcut will ask for your <span className="via-app__hl">User ID</span> and <span className="via-app__hl">Upload Token</span>.</span>
                     </li>
                     <li>
                         <span className="via-app__step-num">3</span>
-                        <span>On your phone, open MoodLens in your browser, log in, and tap <strong>Import Data</strong>. Your credentials will be shown there — copy and paste them into the shortcut.</span>
+                        <span>On your phone, open MoodLens in your browser, log in, and tap <span className="via-app__hl">Import Data</span>. Your credentials will be shown there — copy and paste them into the shortcut.</span>
                     </li>
                     <li>
                         <span className="via-app__step-num">4</span>
-                        <span>In Apple Health, tap your profile → <strong>Export All Health Data</strong> → scroll down and select <strong>MoodLens</strong>.</span>
+                        <span>In Apple Health, tap your profile → <span className="via-app__hl">Export All Health Data</span> → scroll down and select <span className="via-app__hl">MoodLens</span>.</span>
                     </li>
                     <li>
                         <span className="via-app__step-num">5</span>

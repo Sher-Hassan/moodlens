@@ -258,11 +258,8 @@
     line-height: 1.5;
 }
 
-.via-app__steps em,
-.via-app__steps strong {
+.via-app__hl {
     color: var(--text-primary);
-    font-style: normal;
-    font-weight: 600;
 }
 
 .via-app__step-num {
