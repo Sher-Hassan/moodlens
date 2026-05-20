@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useChatbot } from '../hooks/useChatbot';
+import { useUser } from '../../../context/UserContext';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import ChatWelcome from './ChatWelcome';
 import '../styles/chatbot.css';
 
 export default function ChatBot() {
+    const { user } = useUser();
     const {
         isOpen, toggleOpen, setIsOpen,
         messages, isThinking, thinkingHint, welcome,
@@ -25,6 +27,8 @@ export default function ChatBot() {
         document.addEventListener('keydown', handler);
         return () => document.removeEventListener('keydown', handler);
     }, [isOpen, setIsOpen]);
+
+    if (!user) return null;
 
     const handleSuggestion = (text) => {
         dismissWelcome();
