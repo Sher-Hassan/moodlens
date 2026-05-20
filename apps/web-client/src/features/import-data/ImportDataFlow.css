@@ -286,6 +286,87 @@
     margin-top: var(--space-2);
 }
 
+/* ── Credentials block (mobile shortcut view) ──── */
+.via-app__creds {
+    background: var(--color-base);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-input);
+    padding: var(--space-4) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.via-app__creds-label {
+    font-family: var(--font-data);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: var(--space-1);
+}
+
+.via-app__creds-loading {
+    font-size: var(--type-small);
+    color: var(--text-muted);
+}
+
+.via-app__cred-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.via-app__cred-key {
+    font-family: var(--font-data);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    min-width: 90px;
+}
+
+.via-app__cred-val {
+    font-family: var(--font-data);
+    font-size: 12px;
+    color: var(--text-primary);
+    flex: 1;
+    word-break: break-all;
+    line-height: 1.4;
+}
+
+.via-app__cred-val--token {
+    color: var(--teal-glow);
+    letter-spacing: 0.05em;
+}
+
+.via-app__cred-copy {
+    flex-shrink: 0;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--color-border);
+    color: var(--text-secondary);
+    background: var(--color-raised);
+    transition: color var(--duration-fast), border-color var(--duration-fast), background var(--duration-fast);
+    cursor: pointer;
+}
+
+.via-app__cred-copy:hover {
+    color: var(--text-primary);
+    border-color: var(--teal-core);
+}
+
+.via-app__cred-copy.copied {
+    color: var(--teal-glow);
+    border-color: var(--teal-core);
+    background: var(--teal-ghost);
+}
+
 /* ── Via file ──────────────────────────────────── */
 .via-file__drop {
     border: 2px dashed var(--color-border);

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import axios from 'axios';
 import { useUser } from '../../context/UserContext';
 import { useHealthData } from '../../context/HealthDataContext';
@@ -11,8 +11,16 @@ const POLL_PATIENCE = 30; // ~2 minutes before label softens
 
 const STEP = { CHOOSE: 'choose', APP: 'app', FILE: 'file', DONE: 'done' };
 
+function isMobileDevice() {
+    return (
+        (navigator.maxTouchPoints > 0 || 'ontouchstart' in window) &&
+        window.innerWidth <= 1024
+    );
+}
+
 export default function ImportDataFlow({ onClose, isUpdate = false }) {
-    const [step, setStep] = useState(STEP.CHOOSE);
+    const mobile = isMobileDevice();
+    const [step, setStep] = useState(mobile ? STEP.APP : STEP.CHOOSE);
 
     return (
         <section className="import-flow" role="dialog" aria-modal="false">
@@ -31,8 +39,9 @@ export default function ImportDataFlow({ onClose, isUpdate = false }) {
             {step === STEP.CHOOSE && <ChooseMethod onPick={setStep} />}
             {step === STEP.APP && (
                 <ViaApp
+                    isMobile={mobile}
                     onSuccess={() => setStep(STEP.DONE)}
-                    onBack={() => setStep(STEP.CHOOSE)}
+                    onBack={mobile ? onClose : () => setStep(STEP.CHOOSE)}
                 />
             )}
             {step === STEP.FILE && (
@@ -46,7 +55,7 @@ export default function ImportDataFlow({ onClose, isUpdate = false }) {
     );
 }
 
-/* ── Step 1: Choose ───────────────────────────────── */
+/* ── Step 1: Choose (desktop only) ───────────────── */
 function ChooseMethod({ onPick }) {
     return (
         <>
@@ -66,7 +75,7 @@ function ChooseMethod({ onPick }) {
                     <div className="import-choice__body">
                         <p className="import-choice__title">Via MoodLens shortcut</p>
                         <p className="import-choice__sub">
-                            From your iPhone. Tap the shortcut, your data flies straight here.
+                            From your iPhone. Add the shortcut, export from Apple Health, and your data arrives here.
                         </p>
                     </div>
                     <span className="import-choice__chev" aria-hidden="true">→</span>
@@ -88,11 +97,41 @@ function ChooseMethod({ onPick }) {
 }
 
 /* ── Step 2a: Via app ─────────────────────────────── */
-function ViaApp({ onSuccess, onBack }) {
+function ViaApp({ isMobile, onSuccess, onBack }) {
+    const { user } = useUser();
     const { refresh } = useHealthData();
     const [polls, setPolls] = useState(0);
     const stopped = useRef(false);
 
+    // Token state (mobile only)
+    const [credentials, setCredentials] = useState(null);
+    const [credLoading, setCredLoading] = useState(false);
+    const [copiedId, setCopiedId] = useState(false);
+    const [copiedToken, setCopiedToken] = useState(false);
+
+    // Fetch userId + uploadToken on mount (mobile) or when entering this step (desktop shows it too for copy)
+    const fetchCredentials = useCallback(async () => {
+        if (!user) return;
+        setCredLoading(true);
+        try {
+            const token = localStorage.getItem('moodlens.token');
+            const res = await axios.get(`${API_BASE_URL}/api/upload-token/ensure`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setCredentials({ userId: res.data.userId, uploadToken: res.data.token });
+        } catch {
+            // fallback: use user._id from context, token unavailable
+            setCredentials({ userId: user._id, uploadToken: null });
+        } finally {
+            setCredLoading(false);
+        }
+    }, [user]);
+
+    useEffect(() => {
+        fetchCredentials();
+    }, [fetchCredentials]);
+
+    // Polling for data arrival
     useEffect(() => {
         const interval = setInterval(async () => {
             if (stopped.current) return;
@@ -119,16 +158,98 @@ function ViaApp({ onSuccess, onBack }) {
         };
     }, [onSuccess, refresh]);
 
+    const copy = (text, setCopied) => {
+        navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
+
     const patientLabel =
         polls < POLL_PATIENCE
             ? 'Listening for your data'
             : 'Still listening — leave this open';
 
-    // NEW: Point to our setup page instead of directly to iCloud
-    // const setupUrl = window.location.origin + '/shortcut-setup';
     const setupUrl = "https://www.icloud.com/shortcuts/32d33978ecd84a95a2b6382f99c21261";
     const qrCodeApi = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(setupUrl)}&color=edf2f8&bgcolor=131e30`;
 
+    if (isMobile) {
+        /* ── Mobile layout ─────────────────────────────── */
+        return (
+            <>
+                <h2 className="import-flow__title">
+                    Add the <span className="import-flow__title-em">MoodLens shortcut</span>
+                </h2>
+                <p className="import-flow__notice">
+                    Processing may take up to 5 minutes — the backend may need a moment to wake up on its free tier.
+                </p>
+
+                <div className="via-app via-app--mobile">
+                    {/* Add Shortcut button */}
+                    <div className="via-app__qr-frame">
+                        <div className="via-app__qr-ring" />
+                        <a
+                            href={setupUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="via-app__mobile-btn"
+                        >
+                            Add MoodLens Shortcut
+                        </a>
+                    </div>
+
+                    <p className="via-app__listening-label">{patientLabel}</p>
+
+                    {/* Credentials */}
+                    <div className="via-app__creds">
+                        <p className="via-app__creds-label">Your credentials for the shortcut</p>
+
+                        {credLoading ? (
+                            <p className="via-app__creds-loading">Loading…</p>
+                        ) : credentials ? (
+                            <>
+                                <div className="via-app__cred-row">
+                                    <span className="via-app__cred-key">User ID</span>
+                                    <span className="via-app__cred-val">{credentials.userId}</span>
+                                    <button
+                                        className={`via-app__cred-copy ${copiedId ? 'copied' : ''}`}
+                                        onClick={() => copy(credentials.userId, setCopiedId)}
+                                    >
+                                        {copiedId ? '✓ Copied' : 'Copy'}
+                                    </button>
+                                </div>
+
+                                <div className="via-app__cred-row">
+                                    <span className="via-app__cred-key">Upload Token</span>
+                                    <span className="via-app__cred-val via-app__cred-val--token">
+                                        {credentials.uploadToken
+                                            ? `${credentials.uploadToken.slice(0, 8)}…${credentials.uploadToken.slice(-4)}`
+                                            : 'Unavailable'}
+                                    </span>
+                                    {credentials.uploadToken && (
+                                        <button
+                                            className={`via-app__cred-copy ${copiedToken ? 'copied' : ''}`}
+                                            onClick={() => copy(credentials.uploadToken, setCopiedToken)}
+                                        >
+                                            {copiedToken ? '✓ Copied' : 'Copy'}
+                                        </button>
+                                    )}
+                                </div>
+                            </>
+                        ) : null}
+                    </div>
+
+                    <div className="via-app__foot">
+                        <button className="link-btn" onClick={onBack}>
+                            ← Back
+                        </button>
+                    </div>
+                </div>
+            </>
+        );
+    }
+
+    /* ── Desktop layout ───────────────────────────── */
     return (
         <>
             <h2 className="import-flow__title">
@@ -137,24 +258,14 @@ function ViaApp({ onSuccess, onBack }) {
             <div className="via-app">
                 <div className="via-app__qr-frame">
                     <div className="via-app__qr-ring" />
-                    
-                    <img 
-                        src={qrCodeApi} 
-                        alt="Scan to set up MoodLens Shortcut" 
+                    <img
+                        src={qrCodeApi}
+                        alt="Scan to set up MoodLens Shortcut"
                         className="via-app__qr-image"
                         loading="eager"
                     />
-
-                    <a 
-                        href={setupUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="via-app__mobile-btn"
-                    >
-                        Set Up Shortcut
-                    </a>
                 </div>
-                
+
                 <p className="via-app__listening-label">{patientLabel}</p>
                 <p className="via-app__notice">
                     This may take up to 5 minutes — the backend may need a moment to wake up on its free tier.
@@ -163,32 +274,24 @@ function ViaApp({ onSuccess, onBack }) {
                 <ol className="via-app__steps">
                     <li>
                         <span className="via-app__step-num">1</span>
-                        <span className="via-app__desktop-only">Scan the code to begin setup</span>
-                        <span className="via-app__mobile-only">Tap "Add Shortcut"</span>
+                        Scan the QR code with your iPhone to add the MoodLens shortcut.
                     </li>
                     <li>
                         <span className="via-app__step-num">2</span>
-                        Go to Moodlens.com and login
+                        When prompted, the shortcut will ask for your <em>User ID</em> and <em>Upload Token</em>.
                     </li>
                     <li>
                         <span className="via-app__step-num">3</span>
-                        tap on your profile and go to iOS Shortcut
+                        On your phone, open MoodLens in your browser, log in, and tap <em>Import Data</em>.
+                        Your User ID and Upload Token will be shown there — copy and paste them into the shortcut.
                     </li>
                     <li>
                         <span className="via-app__step-num">4</span>
-                        Copy your User Id and Upload Token
+                        In Apple Health, tap your profile → <em>Export All Health Data</em> → scroll down and select <em>MoodLens</em>.
                     </li>
                     <li>
                         <span className="via-app__step-num">5</span>
-                        Go to Apple health, tap on your profile, scroll down and tap <br />Export All Health Data, scroll down and select MoodLens.
-                    </li>
-                    <li>
-                        <span className="via-app__step-num">5</span>
-                        Paste your User Id and Upload Token when prompted
-                    </li>
-                    <li>
-                        
-                        Your Health data will be uploaded
+                        Your data will upload automatically. This page will advance once it arrives.
                     </li>
                 </ol>
 
@@ -255,7 +358,6 @@ function ViaFile({ onSuccess, onBack }) {
 
             await new Promise((resolve, reject) => {
                 let polls = 0;
-                // Nudge the bar slowly while waiting
                 const nudge = setInterval(() => {
                     setProgress((p) => (p < 95 ? p + 0.4 : p));
                 }, 500);
@@ -279,7 +381,6 @@ function ViaFile({ onSuccess, onBack }) {
                     } catch {
                         /* silent retry */
                     }
-                    // Give up after ~10 minutes (120 × 5 s) and let user retry
                     if (polls > 120) {
                         clearInterval(interval);
                         clearInterval(nudge);
