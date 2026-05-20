@@ -9,9 +9,13 @@ const TYPE_MAP = {
 };
 
 /** GET /api/health/processing — returns current upload processing phase */
-export const getProcessingStatus = (req, res) => {
-    const state = getProcessingState(req.user._id);
-    res.json({ phase: state?.phase ?? 'idle', startedAt: state?.startedAt ?? null });
+export const getProcessingStatus = async (req, res) => {
+    try {
+        const state = await getProcessingState(req.user._id);
+        res.json({ phase: state?.phase ?? 'idle', startedAt: state?.startedAt ?? null });
+    } catch {
+        res.json({ phase: 'idle', startedAt: null });
+    }
 };
 
 /** GET /api/health/status — boolean for the DataGate */

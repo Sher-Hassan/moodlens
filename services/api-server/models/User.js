@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema({
         activeEnergyGoal: { type: Number, default: 500 }
     },
     uploadToken: { type: String, default: null, index: true },
+    processingPhase: { type: String, default: null },
+    processingStartedAt: { type: Date, default: null },
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);

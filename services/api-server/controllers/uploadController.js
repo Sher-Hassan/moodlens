@@ -2,21 +2,27 @@ import axios from 'axios';
 import path from 'path';
 import AdmZip from 'adm-zip';
 import HealthRecord from '../models/HealthRecord.js';
+import User from '../models/User.js';
 import FormData from 'form-data';
 
-// In-memory map: userId → { phase: 'received'|'processing'|'done'|'error', startedAt }
-// Cleared 60s after completion so stale entries don't persist across restarts
-const processingState = new Map();
-
-export function getProcessingState(userId) {
-    return processingState.get(String(userId)) ?? null;
+// Persist phase to DB so it survives Render free-tier cold starts / instance swaps
+async function setState(userId, phase) {
+    await User.findByIdAndUpdate(userId, {
+        processingPhase: phase,
+        processingStartedAt: phase === 'received' ? new Date() : undefined,
+    });
 }
 
-function setState(userId, phase) {
-    processingState.set(String(userId), { phase, startedAt: Date.now() });
-    if (phase === 'done' || phase === 'error') {
-        setTimeout(() => processingState.delete(String(userId)), 60000);
+export async function getProcessingState(userId) {
+    const user = await User.findById(userId).select('processingPhase processingStartedAt');
+    if (!user?.processingPhase) return null;
+    // Auto-expire stale states older than 20 minutes (handles crashed background jobs)
+    const age = Date.now() - (user.processingStartedAt?.getTime() ?? 0);
+    if (age > 20 * 60 * 1000 && user.processingPhase !== 'done') {
+        await User.findByIdAndUpdate(userId, { processingPhase: null });
+        return null;
     }
+    return { phase: user.processingPhase, startedAt: user.processingStartedAt };
 }
 
 const ML_RETRIES = 3;
@@ -24,7 +30,7 @@ const ML_RETRY_DELAY_MS = 15000; // 15s between retries — gives cold-start tim
 
 // Fire-and-forget: runs after 202 is sent so Render's 30s timeout never applies
 async function processXmlInBackground(xmlBuffer, userId) {
-    setState(userId, 'processing');
+    await setState(userId, 'processing');
 
     const mlEngineUrl = process.env.ML_ENGINE_URL || 'http://localhost:8000';
     console.log(`📤 [BG] Sending XML payload (${xmlBuffer.length} bytes) to ML engine at: ${mlEngineUrl}/process-xml`);
@@ -56,7 +62,7 @@ async function processXmlInBackground(xmlBuffer, userId) {
 
     if (lastErr) {
         console.error(`[BG] All ${ML_RETRIES} ML engine attempts failed.`);
-        setState(userId, 'error');
+        await setState(userId, 'error');
         return;
     }
 
@@ -66,7 +72,7 @@ async function processXmlInBackground(xmlBuffer, userId) {
     }
     if (!Array.isArray(cleanedData)) {
         console.error('[BG] ML engine returned unexpected format:', typeof cleanedData);
-        setState(userId, 'error');
+        await setState(userId, 'error');
         return;
     }
 
@@ -86,7 +92,7 @@ async function processXmlInBackground(xmlBuffer, userId) {
         } catch (err) {
             if (err.code !== 11000 && !err.writeErrors) {
                 console.error('[BG] DB insert error:', err.message);
-                setState(userId, 'error');
+                await setState(userId, 'error');
                 return;
             }
             console.log(`[BG] Skipped duplicate metrics.`);
@@ -95,7 +101,9 @@ async function processXmlInBackground(xmlBuffer, userId) {
         console.log(`[BG] ML engine returned 0 matching records for user ${userId}`);
     }
 
-    setState(userId, 'done');
+    await setState(userId, 'done');
+    // Clear done state after 2 minutes so it doesn't block future uploads
+    setTimeout(() => User.findByIdAndUpdate(userId, { processingPhase: null }).catch(() => {}), 120000);
 }
 
 export const handleUpload = async (req, res) => {
@@ -141,7 +149,7 @@ export const handleUpload = async (req, res) => {
     }
 
     // Mark upload as received so the frontend polling can show a progress bar immediately
-    setState(userId, 'received');
+    await setState(userId, 'received');
 
     // Respond immediately so Render's 30-second gateway timeout is never hit.
     // The frontend will poll /api/health/status until records appear in the DB.
