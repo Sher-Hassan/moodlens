@@ -56,6 +56,9 @@ function ChooseMethod({ onPick }) {
             <p className="import-flow__sub">
                 Pick whichever is easiest. Both end up in the same place.
             </p>
+            <p className="import-flow__notice">
+                Processing may take up to 5 minutes — our backend is on a free tier and may need a moment to wake up.
+            </p>
 
             <div className="import-flow__choices">
                 <button className="import-choice" onClick={() => onPick(STEP.APP)}>
@@ -153,6 +156,9 @@ function ViaApp({ onSuccess, onBack }) {
                 </div>
                 
                 <p className="via-app__listening-label">{patientLabel}</p>
+                <p className="via-app__notice">
+                    This may take up to 5 minutes — the backend may need a moment to wake up on its free tier.
+                </p>
 
                 <ol className="via-app__steps">
                     <li>
@@ -305,6 +311,9 @@ function ViaFile({ onSuccess, onBack }) {
             </h2>
             <p className="import-flow__sub">
                 Drop the .zip or export.xml file straight from Apple Health.
+            </p>
+            <p className="import-flow__notice">
+                Processing may take up to 5 minutes — the backend may need a moment to wake up on its free tier.
             </p>
 
             <div

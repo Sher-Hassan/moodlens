@@ -152,6 +152,18 @@
     max-width: 42ch;
 }
 
+.import-flow__notice,
+.via-app__notice {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: rgba(255, 200, 80, 0.07);
+    border: 1px solid rgba(255, 200, 80, 0.2);
+    border-radius: 6px;
+    padding: 7px 12px;
+    margin-bottom: var(--space-6);
+    line-height: 1.5;
+}
+
 /* ── Method picker ─────────────────────────────── */
 .import-flow__choices {
     display: flex;
