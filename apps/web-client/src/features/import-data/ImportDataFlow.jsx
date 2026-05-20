@@ -175,7 +175,7 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
                 } else if (currentPhase === 'error') {
                     stopped.current = true;
                     clearInterval(interval);
-                    setUploadError('Processing failed. The ML engine could not handle your file. Please try again — the backend may need a moment to wake up.');
+                    setUploadError(procRes.data.error || 'Processing failed. Please try again — the backend may need a moment to wake up.');
                 }
             } catch {
                 /* silent retry */
@@ -447,7 +447,7 @@ function ViaFile({ onSuccess, onBack }) {
                             clearInterval(interval);
                             clearInterval(nudge);
                             if (procRes.data.phase === 'error') {
-                                reject(new Error('Server encountered an error processing your file. Please try again.'));
+                                reject(new Error(procRes.data.error || 'Server encountered an error processing your file. Please try again.'));
                             } else {
                                 resolve();
                             }

@@ -17,6 +17,7 @@ const userSchema = new mongoose.Schema({
     uploadToken: { type: String, default: null, index: true },
     processingPhase: { type: String, default: null },
     processingStartedAt: { type: Date, default: null },
+    processingError: { type: String, default: null },
 }, { timestamps: true });
 
 export default mongoose.model('User', userSchema);

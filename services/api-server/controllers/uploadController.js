@@ -6,23 +6,24 @@ import User from '../models/User.js';
 import FormData from 'form-data';
 
 // Persist phase to DB so it survives Render free-tier cold starts / instance swaps
-async function setState(userId, phase) {
+async function setState(userId, phase, errorMsg = null) {
     await User.findByIdAndUpdate(userId, {
         processingPhase: phase,
         processingStartedAt: phase === 'received' ? new Date() : undefined,
+        processingError: errorMsg,
     });
 }
 
 export async function getProcessingState(userId) {
-    const user = await User.findById(userId).select('processingPhase processingStartedAt');
+    const user = await User.findById(userId).select('processingPhase processingStartedAt processingError');
     if (!user?.processingPhase) return null;
     // Auto-expire stale states older than 20 minutes (handles crashed background jobs)
     const age = Date.now() - (user.processingStartedAt?.getTime() ?? 0);
     if (age > 20 * 60 * 1000 && user.processingPhase !== 'done') {
-        await User.findByIdAndUpdate(userId, { processingPhase: null });
+        await User.findByIdAndUpdate(userId, { processingPhase: null, processingError: null });
         return null;
     }
-    return { phase: user.processingPhase, startedAt: user.processingStartedAt };
+    return { phase: user.processingPhase, startedAt: user.processingStartedAt, error: user.processingError };
 }
 
 const ML_RETRIES = 3;
@@ -53,6 +54,7 @@ async function processXmlInBackground(xmlBuffer, userId) {
         } catch (err) {
             lastErr = err;
             console.error(`[BG] ML engine attempt ${attempt}/${ML_RETRIES} failed: ${err.message}`);
+            console.error(`[BG] Error code: ${err.code} | Status: ${err.response?.status} | Data: ${JSON.stringify(err.response?.data)}`);
             if (attempt < ML_RETRIES) {
                 console.log(`[BG] Retrying in ${ML_RETRY_DELAY_MS / 1000}s…`);
                 await new Promise(r => setTimeout(r, ML_RETRY_DELAY_MS));
@@ -61,8 +63,9 @@ async function processXmlInBackground(xmlBuffer, userId) {
     }
 
     if (lastErr) {
-        console.error(`[BG] All ${ML_RETRIES} ML engine attempts failed.`);
-        await setState(userId, 'error');
+        const errDetail = lastErr.response?.data ? JSON.stringify(lastErr.response.data).slice(0, 200) : lastErr.message;
+        console.error(`[BG] All ${ML_RETRIES} ML engine attempts failed. Last error: ${errDetail}`);
+        await setState(userId, 'error', `ML engine failed: ${errDetail}`);
         return;
     }
 
@@ -71,8 +74,9 @@ async function processXmlInBackground(xmlBuffer, userId) {
         cleanedData = cleanedData.data;
     }
     if (!Array.isArray(cleanedData)) {
-        console.error('[BG] ML engine returned unexpected format:', typeof cleanedData);
-        await setState(userId, 'error');
+        const detail = JSON.stringify(cleanedData).slice(0, 200);
+        console.error('[BG] ML engine returned unexpected format:', typeof cleanedData, detail);
+        await setState(userId, 'error', `Unexpected ML response: ${detail}`);
         return;
     }
 

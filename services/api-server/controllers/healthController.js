@@ -12,9 +12,9 @@ const TYPE_MAP = {
 export const getProcessingStatus = async (req, res) => {
     try {
         const state = await getProcessingState(req.user._id);
-        res.json({ phase: state?.phase ?? 'idle', startedAt: state?.startedAt ?? null });
+        res.json({ phase: state?.phase ?? 'idle', startedAt: state?.startedAt ?? null, error: state?.error ?? null });
     } catch {
-        res.json({ phase: 'idle', startedAt: null });
+        res.json({ phase: 'idle', startedAt: null, error: null });
     }
 };
 
