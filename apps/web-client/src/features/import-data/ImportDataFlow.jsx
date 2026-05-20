@@ -274,24 +274,23 @@ function ViaApp({ isMobile, onSuccess, onBack }) {
                 <ol className="via-app__steps">
                     <li>
                         <span className="via-app__step-num">1</span>
-                        Scan the QR code with your iPhone to add the MoodLens shortcut.
+                        <span>Scan the QR code with your iPhone to add the MoodLens shortcut.</span>
                     </li>
                     <li>
                         <span className="via-app__step-num">2</span>
-                        When prompted, the shortcut will ask for your <em>User ID</em> and <em>Upload Token</em>.
+                        <span>When prompted, the shortcut will ask for your <strong>User ID</strong> and <strong>Upload Token</strong>.</span>
                     </li>
                     <li>
                         <span className="via-app__step-num">3</span>
-                        On your phone, open MoodLens in your browser, log in, and tap <em>Import Data</em>.
-                        Your User ID and Upload Token will be shown there — copy and paste them into the shortcut.
+                        <span>On your phone, open MoodLens in your browser, log in, and tap <strong>Import Data</strong>. Your credentials will be shown there — copy and paste them into the shortcut.</span>
                     </li>
                     <li>
                         <span className="via-app__step-num">4</span>
-                        In Apple Health, tap your profile → <em>Export All Health Data</em> → scroll down and select <em>MoodLens</em>.
+                        <span>In Apple Health, tap your profile → <strong>Export All Health Data</strong> → scroll down and select <strong>MoodLens</strong>.</span>
                     </li>
                     <li>
                         <span className="via-app__step-num">5</span>
-                        Your data will upload automatically. This page will advance once it arrives.
+                        <span>Your data will upload automatically. This page will advance once it arrives.</span>
                     </li>
                 </ol>
 
